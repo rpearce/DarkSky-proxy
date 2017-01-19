@@ -20,5 +20,8 @@
   "dependencies": {
     "hapi": "^16.1.0",
     "request": "^2.79.0"
+  },
+  "devDependencies": {
+    "dotenv": "^4.0.0"
   }
 }
