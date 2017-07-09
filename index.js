@@ -1,43 +1,46 @@
 'use strict';
 
+// Make our .env configuration file available
 require('dotenv').config()
-const Hapi = require('hapi')
-const request = require('request')
 
-const server = new Hapi.Server()
-const forecastUri = `https://api.darksky.net/forecast/${process.env.DARK_SKY_SECRET}`
+// Import libraries
+const http = require('http')
+const axios = require('axios')
+const { compose, composeP, curryN, path, prop } = require('ramda')
+const { json, logger, methods, mount, parseJson, routes } = require('paperplane')
 
-server.connection({
-  host: 'localhost',
-  port: 5050,
-  routes: {
-    cors: true
-  }
+
+// Application-specific code
+const getForecast = curryN(2, (key, coords) =>
+  axios({
+    method: 'GET',
+    url: `https://api.darksky.net/forecast/${key}/${coords}`
+  })
+  .then(prop('data'))
+)
+
+const forecast = compose(
+  composeP(
+    json,
+    getForecast(process.env.DARK_SKY_SECRET)
+  ),
+  path(['params', 'coords'])
+)
+
+const endpoints = routes({
+  '/forecast/:coords': methods({
+    GET: forecast
+  })
 })
 
-server.route({
-  method: 'GET',
-  path: '/forecast/{lat},{lng}',
-  config: {
-    cors: {
-      origin: ['*']
-    }
-  },
-  handler(req, reply) {
-    const { lat, lng } = req.params
-    const uri = `${forecastUri}/${lat},${lng}`
-    return request(uri, (error, response, body) => {
-      if (!error && response.statusCode === 200) {
-        reply(body)
-      }
-      // TODO: handle errors
-    })
-  }
-})
+const app = compose(endpoints, parseJson)
+
+
+// Server options
+const opts = { errLogger: logger, logger }
+const port = process.env.PORT || 3000
+const listening = err => err ? console.error(err) : console.info(`Listening on port: ${port}`)
+
 
 // Start the server
-server.start(err => {
-  if (err) throw err
-
-  console.log('Server running at:', server.info.uri)
-})
+http.createServer(mount(app), opts).listen(port, listening)
