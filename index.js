@@ -6,15 +6,16 @@ require('dotenv').config()
 // Import libraries
 const http = require('http')
 const axios = require('axios')
-const { compose, composeP, curryN, path, prop } = require('ramda')
+const { compose, composeP, curryN, pick, prop } = require('ramda')
 const { cors, json, logger, methods, mount, parseJson, routes } = require('paperplane')
 
 
 // Application-specific code
-const getForecast = curryN(2, (key, coords) =>
+const getForecast = curryN(2, (key, { params, query }) =>
   axios({
     method: 'GET',
-    url: `https://api.darksky.net/forecast/${key}/${coords}`
+    url: `https://api.darksky.net/forecast/${key}/${params.coords}`,
+    params: query
   })
   .then(prop('data'))
 )
@@ -24,7 +25,7 @@ const forecast = compose(
     json,
     getForecast(process.env.DARK_SKY_SECRET)
   ),
-  path(['params', 'coords'])
+  pick(['params', 'query'])
 )
 
 const endpoints = routes({
